@@ -43,7 +43,7 @@ func (b *bot) addParticipants(participants []string) {
 	for _, p := range participants {
 		fmtParticipant := strings.TrimSpace(p)
 		if len(fmtParticipant) > 0 {
-			b.participants[fmtParticipant] = now()
+			b.participants[fmtParticipant] = time.Now()
 		}
 	}
 }
@@ -61,7 +61,7 @@ func (b *bot) printParticipants() string {
 }
 
 func (b *bot) remind(telebot *tb.Bot) {
-	b.remindAt = now().Add(b.interval)
+	b.remindAt = time.Now().Add(b.interval)
 	b.sendMessage(telebot, fmt.Sprintf("%v\n%s",
 		b.printParticipants(), b.remindMessage))
 	fmt.Printf("Next remind at: %s", b.remindAt)
@@ -84,7 +84,12 @@ func parseTime(raw string) time.Time {
 		return time.Time{}
 	}
 
-	now := now()
+	loc, err := time.LoadLocation("Europe/Minsk")
+	if err != nil {
+		return time.Time{}
+	}
+
+	now := time.Now()
 	remindAt := time.Date(
 		now.Year(),
 		now.Month(),
@@ -93,22 +98,14 @@ func parseTime(raw string) time.Time {
 		m,
 		0,
 		0,
-		time.Local,
-	)
+		loc,
+	).UTC()
 
 	if remindAt.Unix() < now.Unix() {
 		remindAt = remindAt.Add(24 * time.Hour)
 	}
 
 	return remindAt
-}
-
-func now() time.Time {
-	loc, err := time.LoadLocation("Europe/Minsk")
-	if err != nil {
-		return time.Now()
-	}
-	return time.Now().In(loc)
 }
 
 var ticker *time.Ticker
@@ -161,7 +158,7 @@ func (b *bot) Run(telebot *tb.Bot) {
 			for {
 				select {
 				case <-ticker.C:
-					if now().Unix() >= b.remindAt.Unix() {
+					if time.Now().Unix() >= b.remindAt.Unix() {
 						b.remind(telebot)
 					}
 				case <-clearChan:
@@ -178,13 +175,14 @@ func (b *bot) Run(telebot *tb.Bot) {
 	})
 
 	telebot.Handle("/info", func(m *tb.Message) {
+		loc, _ := time.LoadLocation("Europe/Minsk")
 		b.sendMessage(telebot, fmt.Sprintf(
 			"Participants: %s\n"+
 				"Server time: %s\n"+
 				"Next remind at: %s\n"+
 				"Remind message: %s\n"+
 				"Started: %v",
-			b.printParticipants(), now(), b.remindAt, b.remindMessage, b.started))
+			b.printParticipants(), time.Now().In(loc), b.remindAt.In(loc), b.remindMessage, b.started))
 	})
 
 	telebot.Start()
