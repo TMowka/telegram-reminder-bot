@@ -43,7 +43,7 @@ func (b *bot) addParticipants(participants []string) {
 	for _, p := range participants {
 		fmtParticipant := strings.TrimSpace(p)
 		if len(fmtParticipant) > 0 {
-			b.participants[fmtParticipant] = time.Now()
+			b.participants[fmtParticipant] = now()
 		}
 	}
 }
@@ -61,7 +61,7 @@ func (b *bot) printParticipants() string {
 }
 
 func (b *bot) remind(telebot *tb.Bot) {
-	b.remindAt = time.Now().Add(b.interval)
+	b.remindAt = now().Add(b.interval)
 	b.sendMessage(telebot, fmt.Sprintf("%v\n%s",
 		b.printParticipants(), b.remindMessage))
 	fmt.Printf("Next remind at: %s", b.remindAt)
@@ -84,7 +84,7 @@ func parseTime(raw string) time.Time {
 		return time.Time{}
 	}
 
-	now := time.Now()
+	now := now()
 	remindAt := time.Date(
 		now.Year(),
 		now.Month(),
@@ -101,6 +101,14 @@ func parseTime(raw string) time.Time {
 	}
 
 	return remindAt
+}
+
+func now() time.Time {
+	loc, err := time.LoadLocation("Europe/Minsk")
+	if err != nil {
+		return time.Now()
+	}
+	return time.Now().In(loc)
 }
 
 var ticker *time.Ticker
@@ -153,7 +161,7 @@ func (b *bot) Run(telebot *tb.Bot) {
 			for {
 				select {
 				case <-ticker.C:
-					if time.Now().Unix() >= b.remindAt.Unix() {
+					if now().Unix() >= b.remindAt.Unix() {
 						b.remind(telebot)
 					}
 				case <-clearChan:
@@ -176,7 +184,7 @@ func (b *bot) Run(telebot *tb.Bot) {
 				"Next remind at: %s\n"+
 				"Remind message: %s\n"+
 				"Started: %v",
-			b.printParticipants(), time.Now(), b.remindAt, b.remindMessage, b.started))
+			b.printParticipants(), now(), b.remindAt, b.remindMessage, b.started))
 	})
 
 	telebot.Start()

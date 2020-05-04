@@ -19,4 +19,4 @@ RUN go install -v ./...
 RUN go build -o bot ./cmd/bot
 
 # Run executable
-CMD ./bot -token ${TOKEN} -chat-id ${CHAT_IDS}
+CMD ./bot -token ${TOKEN} -chat-ids ${CHAT_IDS}
