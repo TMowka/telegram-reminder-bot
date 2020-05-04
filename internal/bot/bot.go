@@ -170,8 +170,13 @@ func (b *bot) Run(telebot *tb.Bot) {
 	})
 
 	telebot.Handle("/info", func(m *tb.Message) {
-		b.sendMessage(telebot, fmt.Sprintf("Server time: %s\nNext remind at: %s\nStarted: %v",
-			time.Now(), b.remindAt, b.started))
+		b.sendMessage(telebot, fmt.Sprintf(
+			"Participants: %s\n"+
+				"Server time: %s\n"+
+				"Next remind at: %s\n"+
+				"Remind message: %s\n"+
+				"Started: %v",
+			b.printParticipants(), time.Now(), b.remindAt, b.remindMessage, b.started))
 	})
 
 	telebot.Start()
