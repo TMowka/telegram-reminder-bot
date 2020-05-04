@@ -7,7 +7,7 @@ WORKDIR $GOPATH/src/github.com/tmowka/telegram-reminder-bot
 COPY . .
 
 ENV TOKEN=$TOKEN
-ENV CHAT_ID=$CHAT_ID
+ENV CHAT_IDS=$CHAT_IDS
 
 # Download all the dependencies
 RUN go get -d -v ./...
@@ -19,4 +19,4 @@ RUN go install -v ./...
 RUN go build -o bot ./cmd/bot
 
 # Run executable
-CMD ./bot -token ${TOKEN} -chat-id ${CHAT_ID}
+CMD ./bot -token ${TOKEN} -chat-id ${CHAT_IDS}
