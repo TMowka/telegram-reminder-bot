@@ -8,6 +8,7 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 
 	"github.com/tmowka/telegram-reminder-bot/internal/bot"
+	"github.com/tmowka/telegram-reminder-bot/internal/reminder"
 )
 
 type config struct {
@@ -31,7 +32,9 @@ func main() {
 		panic(err)
 	}
 
-	b := bot.NewBot(strings.Split(cfg.chatIds, ","))
+	rmd := reminder.NewReminder("Fill in the project server please!")
+
+	b := bot.NewBot(strings.Split(cfg.chatIds, ","), rmd)
 
 	b.Run(telebot)
 }

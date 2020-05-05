@@ -8,116 +8,28 @@ import (
 
 	"github.com/pkg/errors"
 	tb "gopkg.in/tucnak/telebot.v2"
+
+	"github.com/tmowka/telegram-reminder-bot/internal/reminder"
 )
 
-type Runnable interface {
-	Run(telebot *tb.Bot)
-}
-
-func NewBot(chatIds []string) Runnable {
+func NewBot(chatIds []string, reminder *reminder.Reminder) *Bot {
 	chats := make([]tb.Recipient, len(chatIds))
 	for i, cId := range chatIds {
-		chats[i] = &chat{
+		chats[i] = &Chat{
 			chatId: cId,
 		}
 	}
 
-	return &bot{
-		chats:         chats,
-		participants:  make(map[string]time.Time),
-		interval:      24 * time.Hour,
-		remindMessage: "Fill in the project server please.  🤞",
+	return &Bot{
+		Chats:        chats,
+		participants: make(map[string]time.Time),
+		reminder:     reminder,
 	}
 }
 
-func (b *bot) sendMessage(telebot *tb.Bot, msg string) {
-	for _, chat := range b.chats {
-		if _, err := telebot.Send(chat, msg); err != nil {
-			fmt.Printf("error occured while sending the message: %v",
-				errors.Wrapf(err, "sendMessage->telebot.Send(%+v, %s)", chat, msg))
-		}
-	}
-}
-
-func (b *bot) addParticipants(participants []string) {
-	for _, p := range participants {
-		fmtParticipant := strings.TrimSpace(p)
-		if len(fmtParticipant) > 0 {
-			b.participants[fmtParticipant] = time.Now()
-		}
-	}
-}
-
-func (b *bot) removeParticipant(participant string) {
-	delete(b.participants, participant)
-}
-
-func (b *bot) printParticipants() string {
-	var participants []string
-	for key, _ := range b.participants {
-		participants = append(participants, key)
-	}
-	return strings.Join(participants, " ")
-}
-
-func (b *bot) remind(telebot *tb.Bot) {
-	b.remindAt = time.Now().Add(b.interval)
-	b.sendMessage(telebot, fmt.Sprintf("%v\n%s",
-		b.printParticipants(), b.remindMessage))
-	fmt.Printf("Next remind at: %s", b.remindAt)
-}
-
-func parseTime(raw string) time.Time {
-	hmArr := strings.Split(raw, ":")
-
-	if len(hmArr) != 2 {
-		return time.Time{}
-	}
-
-	h, err := strconv.Atoi(hmArr[0])
-	if err != nil {
-		return time.Time{}
-	}
-
-	m, err := strconv.Atoi(hmArr[1])
-	if err != nil {
-		return time.Time{}
-	}
-
-	loc, err := time.LoadLocation("Europe/Minsk")
-	if err != nil {
-		return time.Time{}
-	}
-
-	now := time.Now()
-	remindAt := time.Date(
-		now.Year(),
-		now.Month(),
-		now.Day(),
-		h,
-		m,
-		0,
-		0,
-		loc,
-	).UTC()
-
-	if remindAt.Unix() < now.Unix() {
-		remindAt = remindAt.Add(24 * time.Hour)
-	}
-
-	return remindAt
-}
-
-var ticker *time.Ticker
-var clearChan chan bool
-
-func (b *bot) Run(telebot *tb.Bot) {
+func (b *Bot) Run(telebot *tb.Bot) {
 	telebot.Handle("/hello", func(m *tb.Message) {
 		b.sendMessage(telebot, "Hello World!")
-	})
-
-	telebot.Handle("/participants", func(m *tb.Message) {
-		b.sendMessage(telebot, b.printParticipants())
 	})
 
 	telebot.Handle("/add_participants", func(m *tb.Message) {
@@ -128,50 +40,70 @@ func (b *bot) Run(telebot *tb.Bot) {
 		b.removeParticipant(m.Payload)
 	})
 
-	telebot.Handle("/message", func(m *tb.Message) {
+	telebot.Handle("/set_remind_time", func(m *tb.Message) {
+		hmArr := strings.Split(m.Payload, ":")
+
+		if len(hmArr) != 2 {
+			fmt.Printf("invalid remind time")
+			return
+		}
+
+		hour, err := strconv.Atoi(hmArr[0])
+		if err != nil {
+			fmt.Printf("invalid remind \"hour\" value: %v", err)
+			return
+		}
+
+		min, err := strconv.Atoi(hmArr[1])
+		if err != nil {
+			fmt.Printf("invalid remind \"minute\" value: %v", err)
+			return
+		}
+
+		loc, _ := time.LoadLocation("Europe/Minsk")
+
+		now := time.Now()
+		remindAt := time.Date(
+			now.Year(),
+			now.Month(),
+			now.Day(),
+			hour,
+			min,
+			0,
+			0,
+			loc,
+		).UTC()
+
+		if remindAt.Unix() < now.Unix() {
+			remindAt = remindAt.Add(24 * time.Hour)
+		}
+
+		b.reminder.RemindAt = remindAt
+	})
+
+	telebot.Handle("/set_remind_message", func(m *tb.Message) {
 		message := strings.TrimSpace(m.Payload)
 		if len(message) > 0 {
-			b.remindMessage = message
+			b.reminder.RemindMessage = message
 		}
 	})
 
 	telebot.Handle("/start", func(m *tb.Message) {
-		if len(m.Payload) > 0 {
-			b.remindAt = parseTime(m.Payload)
+		remindChan := make(chan string)
+		if err := b.reminder.Start(remindChan); err != nil {
+			fmt.Printf("error occured while starting reminder: %v", err)
 		}
 
-		if b.remindAt.IsZero() {
-			b.sendMessage(telebot, "Remind time is not set")
-			return
+		for remindMsg := range remindChan {
+			b.sendMessage(telebot, fmt.Sprintf("%v\n%s",
+				b.printParticipants(), remindMsg))
 		}
-
-		if ticker != nil {
-			ticker.Stop()
-		}
-
-		ticker = time.NewTicker(time.Second)
-		clearChan = make(chan bool)
-
-		b.started = true
-
-		go func() {
-			for {
-				select {
-				case <-ticker.C:
-					if time.Now().Unix() >= b.remindAt.Unix() {
-						b.remind(telebot)
-					}
-				case <-clearChan:
-					ticker.Stop()
-					return
-				}
-			}
-		}()
 	})
 
 	telebot.Handle("/stop", func(m *tb.Message) {
-		clearChan <- true
-		b.started = false
+		if err := b.reminder.Stop(); err != nil {
+			fmt.Printf("error occured while stoping reminder: %v", err)
+		}
 	})
 
 	telebot.Handle("/info", func(m *tb.Message) {
@@ -182,8 +114,43 @@ func (b *bot) Run(telebot *tb.Bot) {
 				"Next remind at: %s\n"+
 				"Remind message: %s\n"+
 				"Started: %v",
-			b.printParticipants(), time.Now().In(loc), b.remindAt.In(loc), b.remindMessage, b.started))
+			b.printParticipants(),
+			time.Now().In(loc),
+			b.reminder.RemindAt.In(loc),
+			b.reminder.RemindMessage,
+			b.reminder.Started),
+		)
 	})
 
 	telebot.Start()
+}
+
+func (b *Bot) sendMessage(telebot *tb.Bot, msg string) {
+	for _, chat := range b.Chats {
+		if _, err := telebot.Send(chat, msg); err != nil {
+			fmt.Printf("error occured while sending the message: %v",
+				errors.Wrapf(err, "sendMessage->telebot.Send(%+v, %s)", chat, msg))
+		}
+	}
+}
+
+func (b *Bot) addParticipants(participants []string) {
+	for _, p := range participants {
+		fmtParticipant := strings.TrimSpace(p)
+		if len(fmtParticipant) > 0 {
+			b.participants[fmtParticipant] = time.Now()
+		}
+	}
+}
+
+func (b *Bot) removeParticipant(participant string) {
+	delete(b.participants, participant)
+}
+
+func (b *Bot) printParticipants() string {
+	var participants []string
+	for key, _ := range b.participants {
+		participants = append(participants, key)
+	}
+	return strings.Join(participants, ", ")
 }
