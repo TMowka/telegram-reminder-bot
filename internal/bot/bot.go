@@ -149,7 +149,7 @@ func (b *Bot) removeParticipant(participant string) {
 
 func (b *Bot) printParticipants() string {
 	var participants []string
-	for key, _ := range b.participants {
+	for key := range b.participants {
 		participants = append(participants, key)
 	}
 	return strings.Join(participants, ", ")

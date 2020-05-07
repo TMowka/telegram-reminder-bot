@@ -12,10 +12,8 @@ import (
 )
 
 type config struct {
-	url     string
 	token   string
 	chatIds string
-	timeout uint64
 }
 
 func main() {
