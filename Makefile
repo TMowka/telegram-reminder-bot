@@ -1,6 +1,3 @@
-include .env
-export
-
 ifeq "$(strip $(shell go env GOARCH))" "amd64"
 RACE_FLAG := -race
 endif
