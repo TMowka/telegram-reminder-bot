@@ -12,14 +12,16 @@ import (
 )
 
 type config struct {
-	token   string
-	chatIds string
+	token    string
+	chatIds  string
+	location string
 }
 
 func main() {
 	var cfg config
 	flag.StringVar(&cfg.token, "token", "", "telegram bot token")
 	flag.StringVar(&cfg.chatIds, "chat-ids", "", "telegram chat ids list")
+	flag.StringVar(&cfg.location, "location", "", "time zone location")
 	flag.Parse()
 
 	telebot, err := tb.NewBot(tb.Settings{
@@ -30,9 +32,15 @@ func main() {
 		panic(err)
 	}
 
-	rmd := reminder.NewReminder("Fill in the project server please!")
+	rmdChan := make(chan string)
+	rmd := reminder.NewReminder("Fill in the project server please!", rmdChan)
 
-	b := bot.NewBot(strings.Split(cfg.chatIds, ","), rmd)
+	loc, err := time.LoadLocation(cfg.location)
+	if err != nil {
+		panic(err)
+	}
+
+	b := bot.NewBot(strings.Split(cfg.chatIds, ","), loc, rmd)
 
 	b.Run(telebot)
 }

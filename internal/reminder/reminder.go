@@ -1,45 +1,41 @@
 package reminder
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
-var ticker *time.Ticker
-var clearChan chan bool
-
-func NewReminder(remindMessage string) *Reminder {
+func NewReminder(remindMessage string, remindChan chan string) *Reminder {
 	return &Reminder{
 		RemindMessage: remindMessage,
-		Interval:      24 * time.Hour,
+		RemindChan:    remindChan,
+
+		weekdaysToSkip: make(map[time.Weekday]struct{}),
+		interval:       24 * time.Hour,
+		clearChan:      make(chan bool),
 	}
 }
 
-func (r *Reminder) Start(remindChan chan string) error {
-	if r.RemindAt.IsZero() {
-		return errors.New("remindAt is not set")
+func (r *Reminder) Start() error {
+	if r.RemindTime.IsZero() {
+		return errors.New("no remind time set")
 	}
 	if r.Started {
 		return errors.New("reminder already started")
 	}
 
-	ticker = time.NewTicker(time.Second)
-	clearChan = make(chan bool)
-
+	r.ticker = time.NewTicker(time.Second)
 	r.Started = true
 
 	go func() {
 		for {
 			select {
-			case <-ticker.C:
-				if time.Now().Unix() >= r.RemindAt.Unix() {
-					r.RemindAt = r.RemindAt.Add(r.Interval)
-					remindChan <- r.RemindMessage
-				}
-			case <-clearChan:
-				ticker.Stop()
-				return
+			case <-r.ticker.C:
+				r.processTick()
+			case <-r.clearChan:
+				r.processClean()
 			}
 		}
 	}()
@@ -48,8 +44,51 @@ func (r *Reminder) Start(remindChan chan string) error {
 }
 
 func (r *Reminder) Stop() error {
-	clearChan <- true
+	r.clearChan <- true
 	r.Started = false
 
 	return nil
+}
+
+func (r *Reminder) SetRemindTime(t time.Time) {
+	if t.Unix() < time.Now().Unix() {
+		r.RemindTime = t.Add(r.interval)
+		return
+	}
+
+	r.RemindTime = t
+}
+
+func (r *Reminder) SetWeekdaysToSkip(weekdays []time.Weekday) {
+	r.weekdaysToSkip = make(map[time.Weekday]struct{})
+	empty := struct{}{}
+
+	for _, weekday := range weekdays {
+		r.weekdaysToSkip[weekday] = empty
+	}
+}
+
+func (r *Reminder) PrintWeekdaysToSkip() string {
+	var weekdays []string
+	for key := range r.weekdaysToSkip {
+		weekdays = append(weekdays, string(key))
+	}
+	return strings.Join(weekdays, ", ")
+}
+
+func (r *Reminder) processTick() {
+	now := time.Now()
+
+	if _, has := r.weekdaysToSkip[now.Weekday()]; has {
+		return
+	}
+
+	if now.Unix() >= r.RemindTime.Unix() {
+		r.RemindChan <- r.RemindMessage
+		r.RemindTime = r.RemindTime.Add(r.interval)
+	}
+}
+
+func (r *Reminder) processClean() {
+	r.ticker.Stop()
 }

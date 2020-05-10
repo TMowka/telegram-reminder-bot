@@ -12,7 +12,7 @@ import (
 	"github.com/tmowka/telegram-reminder-bot/internal/reminder"
 )
 
-func NewBot(chatIds []string, reminder *reminder.Reminder) *Bot {
+func NewBot(chatIds []string, loc *time.Location, reminder *reminder.Reminder) *Bot {
 	chats := make([]tb.Recipient, len(chatIds))
 	for i, cId := range chatIds {
 		chats[i] = &Chat{
@@ -21,7 +21,9 @@ func NewBot(chatIds []string, reminder *reminder.Reminder) *Bot {
 	}
 
 	return &Bot{
-		Chats:        chats,
+		Chats: chats,
+
+		location:     loc,
 		participants: make(map[string]time.Time),
 		reminder:     reminder,
 	}
@@ -60,10 +62,8 @@ func (b *Bot) Run(telebot *tb.Bot) {
 			return
 		}
 
-		loc, _ := time.LoadLocation("Europe/Minsk")
-
 		now := time.Now()
-		remindAt := time.Date(
+		remindTime := time.Date(
 			now.Year(),
 			now.Month(),
 			now.Day(),
@@ -71,14 +71,10 @@ func (b *Bot) Run(telebot *tb.Bot) {
 			min,
 			0,
 			0,
-			loc,
+			b.location,
 		).UTC()
 
-		if remindAt.Unix() < now.Unix() {
-			remindAt = remindAt.Add(24 * time.Hour)
-		}
-
-		b.reminder.RemindAt = remindAt
+		b.reminder.SetRemindTime(remindTime)
 	})
 
 	telebot.Handle("/set_remind_message", func(m *tb.Message) {
@@ -88,15 +84,34 @@ func (b *Bot) Run(telebot *tb.Bot) {
 		}
 	})
 
+	telebot.Handle("/set_weekdays_to_skip", func(m *tb.Message) {
+		rawDays := strings.Split(m.Payload, ",")
+		if len(rawDays) == 0 {
+			return
+		}
+		if len(rawDays) > 7 {
+			fmt.Printf("too many weekdays: %d", len(rawDays))
+		}
+
+		var weekdays []time.Weekday
+		for _, rawDay := range rawDays {
+			weekday, err := strconv.Atoi(strings.TrimSpace(rawDay))
+			if err != nil {
+				weekdays = append(weekdays, time.Weekday(weekday))
+			}
+		}
+
+		b.reminder.SetWeekdaysToSkip(weekdays)
+	})
+
 	telebot.Handle("/start", func(m *tb.Message) {
-		remindChan := make(chan string)
-		if err := b.reminder.Start(remindChan); err != nil {
+		if err := b.reminder.Start(); err != nil {
 			fmt.Printf("error occured while starting reminder: %v", err)
 		}
 
-		for remindMsg := range remindChan {
+		for remindMsg := range b.reminder.RemindChan {
 			b.sendMessage(telebot, fmt.Sprintf("%v\n%s",
-				b.printParticipants(), remindMsg))
+				b.PrintParticipants(), remindMsg))
 		}
 	})
 
@@ -107,16 +122,17 @@ func (b *Bot) Run(telebot *tb.Bot) {
 	})
 
 	telebot.Handle("/info", func(m *tb.Message) {
-		loc, _ := time.LoadLocation("Europe/Minsk")
 		b.sendMessage(telebot, fmt.Sprintf(
 			"Participants: %s\n"+
+				"Weekdays to skip: %s\n"+
 				"Server time: %s\n"+
 				"Next remind at: %s\n"+
 				"Remind message: %s\n"+
 				"Started: %v",
-			b.printParticipants(),
-			time.Now().In(loc),
-			b.reminder.RemindAt.In(loc),
+			b.PrintParticipants(),
+			b.reminder.PrintWeekdaysToSkip(),
+			time.Now().In(b.location),
+			b.reminder.RemindTime.In(b.location),
 			b.reminder.RemindMessage,
 			b.reminder.Started),
 		)
@@ -147,7 +163,7 @@ func (b *Bot) removeParticipant(participant string) {
 	delete(b.participants, participant)
 }
 
-func (b *Bot) printParticipants() string {
+func (b *Bot) PrintParticipants() string {
 	var participants []string
 	for key := range b.participants {
 		participants = append(participants, key)

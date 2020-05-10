@@ -8,6 +8,7 @@ COPY . .
 
 ENV TOKEN=$TOKEN
 ENV CHAT_IDS=$CHAT_IDS
+ENV LOCATION=$LOCATION
 
 # Download all the dependencies
 RUN go get -d -v ./...
@@ -19,4 +20,4 @@ RUN go install -v ./...
 RUN go build -o bot ./cmd/bot
 
 # Run executable
-CMD ./bot -token ${TOKEN} -chat-ids ${CHAT_IDS}
+CMD ./bot -token ${TOKEN} -chat-ids ${CHAT_IDS} -location ${LOCATION}

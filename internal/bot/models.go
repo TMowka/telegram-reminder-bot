@@ -9,9 +9,11 @@ import (
 )
 
 type Bot struct {
-	Chats        []tb.Recipient
+	Chats []tb.Recipient
+
 	participants map[string]time.Time
 	reminder     *reminder.Reminder
+	location     *time.Location
 }
 
 type Chat struct {
