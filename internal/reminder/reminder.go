@@ -79,7 +79,8 @@ func (r *Reminder) PrintWeekdaysToSkip() string {
 func (r *Reminder) processTick() {
 	now := time.Now()
 
-	if _, has := r.weekdaysToSkip[now.Weekday()]; has {
+	if _, skip := r.weekdaysToSkip[now.Weekday()]; skip {
+		r.RemindTime = r.RemindTime.Add(r.interval)
 		return
 	}
 
