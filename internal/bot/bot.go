@@ -86,19 +86,15 @@ func (b *Bot) Run(telebot *tb.Bot) {
 
 	telebot.Handle("/set_weekdays_to_skip", func(m *tb.Message) {
 		rawDays := strings.Split(m.Payload, ",")
-		if len(rawDays) == 0 {
-			return
-		}
-		if len(rawDays) > 7 {
-			fmt.Printf("too many weekdays: %d", len(rawDays))
-		}
 
 		var weekdays []time.Weekday
 		for _, rawDay := range rawDays {
 			weekday, err := strconv.Atoi(strings.TrimSpace(rawDay))
 			if err != nil {
-				weekdays = append(weekdays, time.Weekday(weekday))
+				fmt.Printf("could not parse weekday: %v", err)
+				continue
 			}
+			weekdays = append(weekdays, time.Weekday(weekday))
 		}
 
 		b.reminder.SetWeekdaysToSkip(weekdays)

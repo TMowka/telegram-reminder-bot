@@ -71,7 +71,7 @@ func (r *Reminder) SetWeekdaysToSkip(weekdays []time.Weekday) {
 func (r *Reminder) PrintWeekdaysToSkip() string {
 	var weekdays []string
 	for key := range r.weekdaysToSkip {
-		weekdays = append(weekdays, string(key))
+		weekdays = append(weekdays, key.String())
 	}
 	return strings.Join(weekdays, ", ")
 }
