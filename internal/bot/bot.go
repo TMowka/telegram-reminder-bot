@@ -107,7 +107,7 @@ func (b *Bot) Run(telebot *tb.Bot) {
 
 		for remindMsg := range b.reminder.RemindChan {
 			b.sendMessage(telebot, fmt.Sprintf("%v\n%s",
-				b.PrintParticipants(), remindMsg))
+				b.participants.Print(), remindMsg))
 		}
 	})
 
@@ -125,7 +125,7 @@ func (b *Bot) Run(telebot *tb.Bot) {
 				"Next remind at: %s\n"+
 				"Remind message: %s\n"+
 				"Started: %v",
-			b.PrintParticipants(),
+			b.participants.Print(),
 			b.reminder.PrintWeekdaysToSkip(),
 			time.Now().In(b.location),
 			b.reminder.RemindTime.In(b.location),
@@ -157,12 +157,4 @@ func (b *Bot) addParticipants(participants []string) {
 
 func (b *Bot) removeParticipant(participant string) {
 	delete(b.participants, participant)
-}
-
-func (b *Bot) PrintParticipants() string {
-	var participants []string
-	for key := range b.participants {
-		participants = append(participants, key)
-	}
-	return strings.Join(participants, ", ")
 }
