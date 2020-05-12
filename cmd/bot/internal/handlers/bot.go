@@ -2,42 +2,34 @@ package handlers
 
 import (
 	"context"
+	tb "gopkg.in/tucnak/telebot.v2"
+	"log"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"github.com/tmowka/telegram-reminder-bot/internal/config"
 )
 
-type bot struct {
-	db *sqlx.DB
+type Bot struct {
+	db     *sqlx.DB
+	chatId string
 }
 
-func NewBot(db *sqlx.DB) *bot {
-	return &bot{
-		db: db,
-	}
-}
-
-func (b *bot) Start(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "handlers.Bot.Start")
+func (b *Bot) Start(m *tb.Message) {
+	ctx, span := trace.StartSpan(context.Background(), "handlers.Bot.Start")
 	defer span.End()
 
 	if err := config.Save(ctx, b.db, config.BotStarted, true); err != nil {
-		return errors.Wrapf(err, "saving config: %s, %v", config.BotStarted, true)
+		log.Println("handlers.Bot.Start : error :", err)
 	}
-
-	return nil
 }
 
-func (b *bot) Stop(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "handlers.Bot.Stop")
+func (b *Bot) Stop(m *tb.Message) {
+	ctx, span := trace.StartSpan(context.Background(), "handlers.Bot.Stop")
 	defer span.End()
 
 	if err := config.Save(ctx, b.db, config.BotStarted, false); err != nil {
-		return errors.Wrapf(err, "saving config: %s, %v", config.BotStarted, false)
+		log.Println("handlers.Bot.Start : error :", err)
 	}
-
-	return nil
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -54,8 +55,8 @@ func Save(ctx context.Context, db *sqlx.DB, name Name, val interface{}) error {
 	defer span.End()
 
 	const updateQ = `update config
-		set value = $1
-		where name = $2`
+		set value = $1, updated_at = $2
+		where name = $3`
 	const insertQ = `insert into config
 		(config_id, name, value)
 		values ($1, $2, $3)`
@@ -71,7 +72,7 @@ func Save(ctx context.Context, db *sqlx.DB, name Name, val interface{}) error {
 		}
 
 		res, err := db.ExecContext(ctx, updateQ,
-			cfg.Value, cfg.Name,
+			cfg.Value, time.Now(), cfg.Name,
 		)
 		if err != nil {
 			return errors.Wrap(err, "updating config")

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/tmowka/telegram-reminder-bot/cmd/bot/internal/handlers"
+	"github.com/tmowka/telegram-reminder-bot/internal/platform/bot"
 	"github.com/tmowka/telegram-reminder-bot/internal/platform/database"
 )
 
@@ -23,17 +23,24 @@ func main() {
 func run() error {
 	// =========================================================================
 	// Logging
-	log := log.New(os.Stdout, "SALES : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
+	log := log.New(os.Stdout, "BOT : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
 
 	// =========================================================================
 	// Configuration
 	var cfg struct {
 		DB struct {
 			User       string `conf:"default:postgres"`
-			Password   string `conf:"default:postgres,noprint"`
+			Password   string `conf:"default:password,noprint"`
 			Host       string `conf:"default:0.0.0.0"`
 			Name       string `conf:"default:postgres"`
 			DisableTLS bool   `conf:"default:false"`
+		}
+		BOT struct {
+			Token    string `conf:""`
+			Location string `conf:"default:Europe/Minsk"`
+		}
+		CHAT struct {
+			Id string `conf:""`
 		}
 	}
 
@@ -76,12 +83,25 @@ func run() error {
 	}()
 
 	// =========================================================================
-	// Test Usage
+	// Start Bot
 
-	bot := handlers.NewBot(db)
+	log.Println("main : Started : Initializing bot")
 
-	_ = bot.Start(context.Background())
-	_ = bot.Stop(context.Background())
+	b, err := bot.Create(bot.Config{
+		Token:    cfg.BOT.Token,
+		Location: cfg.BOT.Location,
+	})
+	if err != nil {
+		return errors.Wrap(err, "creating telebot")
+	}
+
+	err = handlers.Telebot(db, b, cfg.CHAT.Id)
+	if err != nil {
+		return errors.Wrap(err, "registration of telebot handlers")
+	}
+
+	log.Println("main : Started : Starting telebot")
+	b.Start()
 
 	return nil
 }

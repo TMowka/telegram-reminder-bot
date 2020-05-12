@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq" // The database driver in use.
 	"go.opencensus.io/trace"
 )
 

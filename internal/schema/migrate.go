@@ -27,14 +27,14 @@ func Migrate(db *sqlx.DB) error {
 var migrations = []darwin.Migration{
 	{
 		Version:     1,
-		Description: "Add config",
+		Description: "Create config table",
 		Script: `
 CREATE TABLE config (
 	config_id   	UUID,
 	name         	TEXT,
 	value       	JSONB,
-	date_created 	TIMESTAMP default now(),
-	date_updated 	TIMESTAMP default now(),
+	created_at 	TIMESTAMP default now(),
+	updated_at 	TIMESTAMP default now(),
 	PRIMARY KEY (config_id)
 );`,
 	},
