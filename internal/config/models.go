@@ -6,6 +6,7 @@ type Name string
 
 const (
 	BotStarted Name = "BotStarted"
+	RemindTime Name = "RemindTime"
 )
 
 type config struct {

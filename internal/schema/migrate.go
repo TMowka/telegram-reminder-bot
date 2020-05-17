@@ -29,13 +29,25 @@ var migrations = []darwin.Migration{
 		Version:     1,
 		Description: "Create config table",
 		Script: `
-CREATE TABLE config (
-	config_id   	UUID,
-	name         	TEXT,
-	value       	JSONB,
-	created_at 	TIMESTAMP default now(),
-	updated_at 	TIMESTAMP default now(),
-	PRIMARY KEY (config_id)
+create table config (
+	config_id   	uuid,
+	name         	text,
+	value       	jsonb,
+	created_at 		timestamp,
+	updated_at 		timestamp,
+	primary key 	(config_id)
+);`,
+	},
+	{
+		Version:     2,
+		Description: "Create participants table",
+		Script: `
+create table participants (
+	participant_id 	uuid,
+	name 			varchar unique,
+	added_at 		timestamp,
+	updated_at 		timestamp,
+	primary key 	(participant_id)
 );`,
 	},
 }

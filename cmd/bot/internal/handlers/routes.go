@@ -9,6 +9,10 @@ func Telebot(db *sqlx.DB, telebot *tb.Bot, chatId string) error {
 	b := Bot{db: db, chatId: chatId}
 	telebot.Handle("/start", b.Start)
 	telebot.Handle("/stop", b.Stop)
+	telebot.Handle("/addparticipant", b.AddParticipant)
+	telebot.Handle("/removeparticipant", b.RemoveParticipant)
+	telebot.Handle("/setremindtime", b.SetRemindTime)
+	telebot.Handle("/setweekdaystoskip", b.SetRemindTime)
 
 	return nil
 }

@@ -1,6 +1,10 @@
 <component name="ProjectDictionaryState">
   <dictionary name="tmowka">
     <words>
+      <w>addparticipant</w>
+      <w>removeparticipant</w>
+      <w>setremindtime</w>
+      <w>setweekdaystoskip</w>
       <w>telebot</w>
     </words>
   </dictionary>
