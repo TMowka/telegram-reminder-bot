@@ -5,8 +5,10 @@ import "time"
 type Name string
 
 const (
-	BotStarted Name = "BotStarted"
-	RemindTime Name = "RemindTime"
+	BotStarted     Name = "BotStarted"
+	RemindTime     Name = "RemindTime"
+	RemindMessage  Name = "RemindMessage"
+	WeekdaysToSkip Name = "WeekdaysToSkip"
 )
 
 type config struct {

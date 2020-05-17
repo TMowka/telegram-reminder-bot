@@ -1,33 +1,42 @@
 package reminder
 
 import (
-	"strings"
+	"context"
+	"go.opencensus.io/trace"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
-func NewReminder(remindMessage string, remindChan chan string) *Reminder {
+func New(interval time.Duration) *Reminder {
 	return &Reminder{
-		RemindMessage: remindMessage,
-		RemindChan:    remindChan,
-
-		weekdaysToSkip: make(map[time.Weekday]struct{}),
-		interval:       24 * time.Hour,
-		clearChan:      make(chan bool),
+		WeekdaysToSkip: make(map[time.Weekday]struct{}),
+		Interval:       interval,
+		clearChan:      make(chan struct{}, 1),
 	}
 }
 
-func (r *Reminder) Start() error {
-	if r.RemindTime.IsZero() {
-		return errors.New("no remind time set")
-	}
-	if r.Started {
-		return errors.New("reminder already started")
+func (r *Reminder) Start(remindTime time.Time) (chan struct{}, error) {
+	_, span := trace.StartSpan(context.Background(), "reminder.Reminder.Start")
+	defer span.End()
+
+	if remindTime.IsZero() {
+		return nil, errors.New("no remind time set")
 	}
 
+	for remindTime.Unix() < time.Now().Unix() {
+		remindTime = remindTime.Add(r.Interval)
+	}
+
+	r.remindTime = remindTime
+
+	if r.started {
+		return r.remindChan, nil
+	}
+
+	r.remindChan = make(chan struct{}, 1)
 	r.ticker = time.NewTicker(time.Second)
-	r.Started = true
+	r.started = true
 
 	go func() {
 		for {
@@ -40,56 +49,35 @@ func (r *Reminder) Start() error {
 		}
 	}()
 
-	return nil
+	return r.remindChan, nil
 }
 
 func (r *Reminder) Stop() error {
-	r.clearChan <- true
-	r.Started = false
+	_, span := trace.StartSpan(context.Background(), "reminder.Reminder.Stop")
+	defer span.End()
+
+	r.clearChan <- struct{}{}
 
 	return nil
-}
-
-func (r *Reminder) SetRemindTime(t time.Time) {
-	if t.Unix() < time.Now().Unix() {
-		r.RemindTime = t.Add(r.interval)
-		return
-	}
-
-	r.RemindTime = t
-}
-
-func (r *Reminder) SetWeekdaysToSkip(weekdays []time.Weekday) {
-	r.weekdaysToSkip = make(map[time.Weekday]struct{})
-	empty := struct{}{}
-
-	for _, weekday := range weekdays {
-		r.weekdaysToSkip[weekday] = empty
-	}
-}
-
-func (r *Reminder) PrintWeekdaysToSkip() string {
-	var weekdays []string
-	for key := range r.weekdaysToSkip {
-		weekdays = append(weekdays, key.String())
-	}
-	return strings.Join(weekdays, ", ")
 }
 
 func (r *Reminder) processTick() {
 	now := time.Now()
 
-	if _, skip := r.weekdaysToSkip[r.RemindTime.Weekday()]; skip {
-		r.RemindTime = r.RemindTime.Add(r.interval)
+	if _, skip := r.WeekdaysToSkip[r.remindTime.Weekday()]; skip {
+		r.remindTime = r.remindTime.Add(r.Interval)
 		return
 	}
 
-	if now.Unix() >= r.RemindTime.Unix() {
-		r.RemindChan <- r.RemindMessage
-		r.RemindTime = r.RemindTime.Add(r.interval)
+	if now.Unix() >= r.remindTime.Unix() {
+		r.remindChan <- struct{}{}
+		r.remindTime = r.remindTime.Add(r.Interval)
 	}
 }
 
 func (r *Reminder) processClean() {
+	defer close(r.remindChan)
+
 	r.ticker.Stop()
+	r.started = false
 }

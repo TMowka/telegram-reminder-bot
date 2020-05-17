@@ -43,44 +43,44 @@ func (b *Bot) Run(telebot *tb.Bot) {
 	})
 
 	telebot.Handle("/set_remind_time", func(m *tb.Message) {
-		hmArr := strings.Split(m.Payload, ":")
-
-		if len(hmArr) != 2 {
-			fmt.Printf("invalid remind time")
-			return
-		}
-
-		hour, err := strconv.Atoi(hmArr[0])
-		if err != nil {
-			fmt.Printf("invalid remind \"hour\" value: %v", err)
-			return
-		}
-
-		min, err := strconv.Atoi(hmArr[1])
-		if err != nil {
-			fmt.Printf("invalid remind \"minute\" value: %v", err)
-			return
-		}
-
-		now := time.Now()
-		remindTime := time.Date(
-			now.Year(),
-			now.Month(),
-			now.Day(),
-			hour,
-			min,
-			0,
-			0,
-			b.location,
-		).UTC()
-
-		b.reminder.SetRemindTime(remindTime)
+		//hmArr := strings.Split(m.Payload, ":")
+		//
+		//if len(hmArr) != 2 {
+		//	fmt.Printf("invalid remind time")
+		//	return
+		//}
+		//
+		//hour, err := strconv.Atoi(hmArr[0])
+		//if err != nil {
+		//	fmt.Printf("invalid remind \"hour\" value: %v", err)
+		//	return
+		//}
+		//
+		//min, err := strconv.Atoi(hmArr[1])
+		//if err != nil {
+		//	fmt.Printf("invalid remind \"minute\" value: %v", err)
+		//	return
+		//}
+		//
+		//now := time.Now()
+		//remindTime := time.Date(
+		//	now.Year(),
+		//	now.Month(),
+		//	now.Day(),
+		//	hour,
+		//	min,
+		//	0,
+		//	0,
+		//	b.location,
+		//).UTC()
+		//
+		//b.reminder.SetRemindTime(remindTime)
 	})
 
 	telebot.Handle("/set_remind_message", func(m *tb.Message) {
 		message := strings.TrimSpace(m.Payload)
 		if len(message) > 0 {
-			b.reminder.RemindMessage = message
+			//b.reminder.RemindMessage = message
 		}
 	})
 
@@ -97,18 +97,18 @@ func (b *Bot) Run(telebot *tb.Bot) {
 			weekdays = append(weekdays, time.Weekday(weekday))
 		}
 
-		b.reminder.SetWeekdaysToSkip(weekdays)
+		//b.reminder.SetWeekdaysToSkip(weekdays)
 	})
 
 	telebot.Handle("/start", func(m *tb.Message) {
-		if err := b.reminder.Start(); err != nil {
-			fmt.Printf("error occured while starting reminder: %v", err)
-		}
-
-		for remindMsg := range b.reminder.RemindChan {
-			b.sendMessage(telebot, fmt.Sprintf("%v\n%s",
-				b.participants.Print(), remindMsg))
-		}
+		//if err := b.reminder.Start(); err != nil {
+		//	fmt.Printf("error occured while starting reminder: %v", err)
+		//}
+		//
+		//for remindMsg := range b.reminder.RemindChan {
+		//	b.sendMessage(telebot, fmt.Sprintf("%v\n%s",
+		//		b.participants.Print(), remindMsg))
+		//}
 	})
 
 	telebot.Handle("/stop", func(m *tb.Message) {
@@ -118,20 +118,20 @@ func (b *Bot) Run(telebot *tb.Bot) {
 	})
 
 	telebot.Handle("/info", func(m *tb.Message) {
-		b.sendMessage(telebot, fmt.Sprintf(
-			"Participants: %s\n"+
-				"Weekdays to skip: %s\n"+
-				"Server time: %s\n"+
-				"Next remind at: %s\n"+
-				"Remind message: %s\n"+
-				"Started: %v",
-			b.participants.Print(),
-			b.reminder.PrintWeekdaysToSkip(),
-			time.Now().In(b.location),
-			b.reminder.RemindTime.In(b.location),
-			b.reminder.RemindMessage,
-			b.reminder.Started),
-		)
+		//b.sendMessage(telebot, fmt.Sprintf(
+		//	"Participants: %s\n"+
+		//		"Weekdays to skip: %s\n"+
+		//		"Server time: %s\n"+
+		//		"Next remind at: %s\n"+
+		//		"Remind message: %s\n"+
+		//		"Started: %v",
+		//	b.participants.Print(),
+		//	b.reminder.PrintWeekdaysToSkip(),
+		//	time.Now().In(b.location),
+		//	b.reminder.RemindTime.In(b.location),
+		//	b.reminder.RemindMessage,
+		//	b.reminder.Started),
+		//)
 	})
 
 	telebot.Start()

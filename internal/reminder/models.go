@@ -3,13 +3,12 @@ package reminder
 import "time"
 
 type Reminder struct {
-	RemindTime    time.Time
-	RemindMessage string
-	RemindChan    chan string
-	Started       bool
+	WeekdaysToSkip map[time.Weekday]struct{}
+	Interval       time.Duration
 
-	weekdaysToSkip map[time.Weekday]struct{}
-	interval       time.Duration
-	ticker         *time.Ticker
-	clearChan      chan bool
+	remindTime time.Time
+	ticker     *time.Ticker
+	clearChan  chan struct{}
+	remindChan chan struct{}
+	started    bool
 }
