@@ -76,8 +76,9 @@ func (r *Reminder) processTick() {
 }
 
 func (r *Reminder) processClean() {
-	defer close(r.remindChan)
-
-	r.ticker.Stop()
-	r.started = false
+	if r.started {
+		defer close(r.remindChan)
+		r.ticker.Stop()
+		r.started = false
+	}
 }

@@ -3,6 +3,7 @@
     <words>
       <w>addparticipant</w>
       <w>removeparticipant</w>
+      <w>setremindmessage</w>
       <w>setremindtime</w>
       <w>setweekdaystoskip</w>
       <w>telebot</w>

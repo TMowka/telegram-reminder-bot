@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -34,11 +35,57 @@ func (c *chat) Recipient() string {
 func (b *Bot) send(msg string) {
 	if _, err := b.telebot.Send(b.chat, msg); err != nil {
 		log.Println("handlers.Bot.send : error :", err)
+		return
 	}
+
+	log.Println("handlers.Bot.send : msg :", msg)
 }
 
-func (b *Bot) notify() {
-	b.send("remind message")
+func (b *Bot) notify(ctx context.Context) {
+	pCh := make(chan []participant.Participant)
+	rmCh := make(chan string)
+
+	go func() {
+		defer close(pCh)
+
+		participants, err := participant.List(ctx, b.db)
+		if err != nil {
+			err = errors.Wrap(err, "error getting participants")
+			log.Println("handlers.Bot.notify : error :", err)
+
+			participants = []participant.Participant{}
+		}
+
+		pCh <- participants
+	}()
+
+	go func() {
+		defer close(rmCh)
+
+		remindMessage, err := config.GetByName(ctx, b.db, config.RemindMessage)
+		if err != nil {
+			err = errors.Wrap(err, "error getting remind message")
+			log.Println("handlers.Bot.notify : error :", err)
+
+			remindMessage = "Fill in project server, please!"
+		}
+
+		rmCh <- remindMessage.(string)
+	}()
+
+	participants, remindMessage := <-pCh, <-rmCh
+
+	pNames := make([]string, len(participants))
+	for i, p := range participants {
+		pNames[i] = p.Name
+	}
+
+	var pMessage string
+	if len(pNames) > 0 {
+		pMessage = strings.Join(pNames, ", ")
+	}
+
+	b.send(fmt.Sprintf("%s\n%s", pMessage, remindMessage))
 }
 
 func (b *Bot) Hello(m *tb.Message) {
@@ -63,8 +110,8 @@ func (b *Bot) Start(m *tb.Message) {
 	}
 
 	go func() {
-		for _ = range remindChan {
-			b.notify()
+		for range remindChan {
+			b.notify(ctx)
 		}
 	}()
 }
@@ -73,13 +120,13 @@ func (b *Bot) Stop(m *tb.Message) {
 	ctx, span := trace.StartSpan(context.Background(), "handlers.Bot.Stop")
 	defer span.End()
 
-	if err := config.Save(ctx, b.db, config.BotStarted, false, time.Now()); err != nil {
-		err = errors.Wrap(err, "error saving config")
+	if err := b.reminder.Stop(); err != nil {
+		err = errors.Wrap(err, "error stopping reminder")
 		log.Println("handlers.Bot.Stop : error :", err)
 	}
 
-	if err := b.reminder.Stop(); err != nil {
-		err = errors.Wrap(err, "error stopping reminder")
+	if err := config.Save(ctx, b.db, config.BotStarted, false, time.Now()); err != nil {
+		err = errors.Wrap(err, "error saving config")
 		log.Println("handlers.Bot.Stop : error :", err)
 	}
 }

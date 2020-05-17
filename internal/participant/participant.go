@@ -21,7 +21,7 @@ func List(ctx context.Context, db *sqlx.DB) ([]Participant, error) {
 	defer span.End()
 
 	var participants []Participant
-	const q = `select * from participant`
+	const q = `select * from participants`
 
 	if err := db.SelectContext(ctx, &participants, q); err != nil {
 		return nil, errors.Wrap(err, "selecting participants")
@@ -74,7 +74,7 @@ func DeleteByName(ctx context.Context, db *sqlx.DB, name string) error {
 	ctx, span := trace.StartSpan(ctx, "internal.participant.DeleteByName")
 	defer span.End()
 
-	const q = `delete from participants 
+	const q = `delete from participants
 		where name = $1`
 
 	if _, err := db.ExecContext(ctx, q, name); err != nil {

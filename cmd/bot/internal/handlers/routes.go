@@ -27,7 +27,8 @@ func Telebot(db *sqlx.DB, telebot *tb.Bot, chatId string) error {
 	telebot.Handle("/addparticipant", b.AddParticipant)
 	telebot.Handle("/removeparticipant", b.RemoveParticipant)
 	telebot.Handle("/setremindtime", b.SetRemindTime)
-	telebot.Handle("/setweekdaystoskip", b.SetRemindTime)
+	telebot.Handle("/setremindmessage", b.SetRemindMessage)
+	telebot.Handle("/setweekdaystoskip", b.SetWeekdaysToSkip)
 
 	return nil
 }
