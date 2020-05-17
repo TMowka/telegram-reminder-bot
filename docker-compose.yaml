@@ -20,6 +20,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - ./.env
     environment:
       - BOT_DB_HOST=db
       - BOT_DB_DISABLE_TLS=1 # This is only disabled for our development enviroment.

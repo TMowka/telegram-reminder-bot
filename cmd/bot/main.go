@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	logger "log"
 	"os"
 
 	"github.com/ardanlabs/conf"
@@ -32,43 +31,28 @@ type config struct {
 }
 
 func main() {
-	var cfg config
-
-	if err := conf.Parse(os.Args[1:], "BOT", &cfg); err != nil {
-		if err != conf.ErrHelpWanted {
-			log.Println("error :", errors.Wrap(err, "parsing config"))
-			os.Exit(1)
-		}
-
-		usage, err := conf.Usage("BOT", &cfg)
-		if err != nil {
-			log.Println("error :", errors.Wrap(err, "generating config usage"))
-		}
-		fmt.Println(usage)
-	}
-
-	out, err := conf.String(&cfg)
+	cfg, err := configure()
 	if err != nil {
-		log.Println("error :", errors.Wrap(err, "generating config for output"))
+		logger.Println("error :", err)
 		os.Exit(1)
 	}
-	log.Printf("main : Config :\n%v\n", out)
 
 	if err := migrate(cfg); err != nil {
-		log.Println("error :", err)
+		logger.Println("error :", err)
 		os.Exit(1)
 	}
 
 	if err := run(cfg); err != nil {
-		log.Println("error :", err)
+		logger.Println("error :", err)
 		os.Exit(1)
 	}
 }
 
-func run(cfg config) error {
+func run(cfg *config) error {
 	// =========================================================================
 	// Logging
-	log := log.New(os.Stdout, "BOT : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
+	log := logger.New(os.Stdout, "BOT : ",
+		logger.LstdFlags|logger.Lmicroseconds|logger.Lshortfile)
 
 	// =========================================================================
 	// Start Database
@@ -123,7 +107,17 @@ func run(cfg config) error {
 	return nil
 }
 
-func migrate(cfg config) error {
+func migrate(cfg *config) error {
+	// =========================================================================
+	// Logging
+	log := logger.New(os.Stdout, "BOT : ",
+		logger.LstdFlags|logger.Lmicroseconds|logger.Lshortfile)
+
+	// =========================================================================
+	// Migrate Database
+
+	log.Println("migrate : Started : Migrating database")
+
 	db, err := database.Open(database.Config{
 		User:       cfg.DB.User,
 		Password:   cfg.DB.Password,
@@ -132,14 +126,44 @@ func migrate(cfg config) error {
 		DisableTLS: cfg.DB.DisableTLS,
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "connecting to db")
 	}
 	defer db.Close()
 
 	if err := schema.Migrate(db); err != nil {
-		return err
+		return errors.Wrap(err, "migrating database")
 	}
 
-	fmt.Println("Migrations complete")
+	log.Println("migrate : Completed : Migrating database")
 	return nil
+}
+
+func configure() (*config, error) {
+	// =========================================================================
+	// Logging
+	log := logger.New(os.Stdout, "BOT : ",
+		logger.LstdFlags|logger.Lmicroseconds|logger.Lshortfile)
+
+	log.Println("configure : Started : Initializing config")
+
+	var cfg config
+
+	if err := conf.Parse(os.Args[1:], "BOT", &cfg); err != nil {
+		if err != conf.ErrHelpWanted {
+			return nil, errors.Wrap(err, "parsing config")
+		}
+
+		_, err := conf.Usage("BOT", &cfg)
+		if err != nil {
+			return nil, errors.Wrap(err, "generating config usage")
+		}
+	}
+
+	out, err := conf.String(&cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "generating config for output")
+	}
+	log.Printf("configure : Config :\n%v\n", out)
+
+	return &cfg, nil
 }
