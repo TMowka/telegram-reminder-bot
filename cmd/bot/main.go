@@ -89,14 +89,13 @@ func run(cfg *config) error {
 	log.Println("main : Started : Initializing bot")
 
 	b, err := bot.Create(bot.Config{
-		Token:    cfg.BOT.Token,
-		Location: cfg.BOT.Location,
+		Token: cfg.BOT.Token,
 	})
 	if err != nil {
 		return errors.Wrap(err, "creating telebot")
 	}
 
-	err = handlers.Telebot(db, b, cfg.CHAT.Id)
+	err = handlers.Telebot(db, b, cfg.CHAT.Id, cfg.BOT.Location)
 	if err != nil {
 		return errors.Wrap(err, "registration of telebot handlers")
 	}

@@ -7,8 +7,7 @@ import (
 )
 
 type Config struct {
-	Token    string
-	Location string
+	Token string
 }
 
 func Create(cfg Config) (*tb.Bot, error) {

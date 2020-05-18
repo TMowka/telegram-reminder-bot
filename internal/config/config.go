@@ -38,7 +38,7 @@ func GetByName(ctx context.Context, db *sqlx.DB, name Name) (interface{}, error)
 			return nil, errors.Wrap(err, "selecting boolean config by name")
 		}
 		return bc.Value, nil
-	case RemindMessage:
+	case RemindMessage, RemindTime, WeekdaysToSkip:
 		if err := db.GetContext(ctx, &sc, q, name); err != nil {
 			if err == sql.ErrNoRows {
 				return nil, ErrNotFound
@@ -49,7 +49,7 @@ func GetByName(ctx context.Context, db *sqlx.DB, name Name) (interface{}, error)
 		// remove quotes from the beginning and end of the saved string
 		return sc.Value[1 : len(sc.Value)-1], nil
 	default:
-		return nil, errors.New("unknown config name to select")
+		return nil, errors.Errorf("unknown config name to select: %s", name)
 	}
 }
 
@@ -92,7 +92,7 @@ func Save(ctx context.Context, db *sqlx.DB, name Name, val interface{}, now time
 			return errors.Wrap(err, "inserting config")
 		}
 		return nil
-	case RemindMessage:
+	case RemindMessage, RemindTime, WeekdaysToSkip:
 		cfg := &StringConfig{
 			config: config{
 				ID:   uuid.New().String(),
@@ -120,6 +120,6 @@ func Save(ctx context.Context, db *sqlx.DB, name Name, val interface{}, now time
 		}
 		return nil
 	default:
-		return errors.New("unknown config name to insert")
+		return errors.Errorf("unknown config name to insert: %s", name)
 	}
 }
