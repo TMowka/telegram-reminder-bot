@@ -1,46 +1,168 @@
 package main
 
 import (
-	"flag"
-	"strings"
-	"time"
+	logger "log"
+	"os"
 
-	tb "gopkg.in/tucnak/telebot.v2"
+	"github.com/ardanlabs/conf"
+	"github.com/pkg/errors"
 
-	"github.com/tmowka/telegram-reminder-bot/internal/bot"
-	"github.com/tmowka/telegram-reminder-bot/internal/reminder"
+	"github.com/tmowka/telegram-reminder-bot/cmd/bot/internal/handlers"
+	"github.com/tmowka/telegram-reminder-bot/internal/platform/bot"
+	"github.com/tmowka/telegram-reminder-bot/internal/platform/database"
+	"github.com/tmowka/telegram-reminder-bot/internal/schema"
 )
 
 type config struct {
-	token    string
-	chatIds  string
-	location string
+	DB struct {
+		User       string `conf:"default:postgres"`
+		Password   string `conf:"default:password,noprint"`
+		Host       string `conf:"default:0.0.0.0"`
+		Name       string `conf:"default:postgres"`
+		DisableTLS bool   `conf:"default:false"`
+	}
+	BOT struct {
+		Token    string `conf:""`
+		Location string `conf:"default:Europe/Minsk"`
+	}
+	CHAT struct {
+		Id string `conf:""`
+	}
 }
 
 func main() {
-	var cfg config
-	flag.StringVar(&cfg.token, "token", "", "telegram bot token")
-	flag.StringVar(&cfg.chatIds, "chat-ids", "", "telegram chat ids list")
-	flag.StringVar(&cfg.location, "location", "", "time zone location")
-	flag.Parse()
+	cfg, err := configure()
+	if err != nil {
+		logger.Println("error :", err)
+		os.Exit(1)
+	}
 
-	telebot, err := tb.NewBot(tb.Settings{
-		Token:  cfg.token,
-		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
+	if err := migrate(cfg); err != nil {
+		logger.Println("error :", err)
+		os.Exit(1)
+	}
+
+	if err := run(cfg); err != nil {
+		logger.Println("error :", err)
+		os.Exit(1)
+	}
+}
+
+func run(cfg *config) error {
+	// =========================================================================
+	// Logging
+	log := logger.New(os.Stdout, "BOT : ",
+		logger.LstdFlags|logger.Lmicroseconds|logger.Lshortfile)
+
+	// =========================================================================
+	// Start Database
+
+	log.Println("main : Started : Initializing database support")
+
+	db, err := database.Open(database.Config{
+		User:       cfg.DB.User,
+		Password:   cfg.DB.Password,
+		Host:       cfg.DB.Host,
+		Name:       cfg.DB.Name,
+		DisableTLS: cfg.DB.DisableTLS,
 	})
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "connecting to db")
+	}
+	defer func() {
+		log.Printf("main : Database Stopping : %s", cfg.DB.Host)
+		db.Close()
+	}()
+
+	// =========================================================================
+	// Migrate Database
+
+	log.Println("main : Started : Migrating database")
+
+	if err := schema.Migrate(db); err != nil {
+		return errors.Wrap(err, "migrating db")
 	}
 
-	rmdChan := make(chan string)
-	rmd := reminder.NewReminder("Fill in the project server please!", rmdChan)
+	// =========================================================================
+	// Start Bot
 
-	loc, err := time.LoadLocation(cfg.location)
+	log.Println("main : Started : Initializing bot")
+
+	b, err := bot.Create(bot.Config{
+		Token: cfg.BOT.Token,
+	})
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "creating telebot")
 	}
 
-	b := bot.NewBot(strings.Split(cfg.chatIds, ","), loc, rmd)
+	err = handlers.Telebot(db, b, cfg.CHAT.Id, cfg.BOT.Location)
+	if err != nil {
+		return errors.Wrap(err, "registration of telebot handlers")
+	}
 
-	b.Run(telebot)
+	log.Println("main : Started : Starting telebot")
+	b.Start()
+
+	return nil
+}
+
+func migrate(cfg *config) error {
+	// =========================================================================
+	// Logging
+	log := logger.New(os.Stdout, "BOT : ",
+		logger.LstdFlags|logger.Lmicroseconds|logger.Lshortfile)
+
+	// =========================================================================
+	// Migrate Database
+
+	log.Println("migrate : Started : Migrating database")
+
+	db, err := database.Open(database.Config{
+		User:       cfg.DB.User,
+		Password:   cfg.DB.Password,
+		Host:       cfg.DB.Host,
+		Name:       cfg.DB.Name,
+		DisableTLS: cfg.DB.DisableTLS,
+	})
+	if err != nil {
+		return errors.Wrap(err, "connecting to db")
+	}
+	defer db.Close()
+
+	if err := schema.Migrate(db); err != nil {
+		return errors.Wrap(err, "migrating database")
+	}
+
+	log.Println("migrate : Completed : Migrating database")
+	return nil
+}
+
+func configure() (*config, error) {
+	// =========================================================================
+	// Logging
+	log := logger.New(os.Stdout, "BOT : ",
+		logger.LstdFlags|logger.Lmicroseconds|logger.Lshortfile)
+
+	log.Println("configure : Started : Initializing config")
+
+	var cfg config
+
+	if err := conf.Parse(os.Args[1:], "BOT", &cfg); err != nil {
+		if err != conf.ErrHelpWanted {
+			return nil, errors.Wrap(err, "parsing config")
+		}
+
+		_, err := conf.Usage("BOT", &cfg)
+		if err != nil {
+			return nil, errors.Wrap(err, "generating config usage")
+		}
+	}
+
+	out, err := conf.String(&cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "generating config for output")
+	}
+	log.Printf("configure : Config :\n%v\n", out)
+
+	return &cfg, nil
 }

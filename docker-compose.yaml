@@ -1,6 +1,30 @@
 version: '3'
 
+networks:
+  shared-network:
+    driver: bridge
+
 services:
+  db:
+    container_name: telegram_reminder_bot_db
+    networks:
+      - shared-network
+    image: postgres:11.1-alpine
+    ports:
+      - 5432:5432
+
   bot:
-    build: .
-    env_file: .env
+    container_name: telegram_reminder_bot
+    networks:
+      - shared-network
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    environment:
+      - BOT_DB_HOST=db
+      - BOT_DB_DISABLE_TLS=1 # This is only disabled for our development enviroment.
+      # - GODEBUG=gctrace=1
+    depends_on:
+      - db
