@@ -56,6 +56,9 @@ func CreateOrUpdate(ctx context.Context, db *sqlx.DB, participant NewParticipant
 	}
 
 	upd, err := res.RowsAffected()
+	if err == nil {
+		return nil, errors.Wrap(err, "updating participant")
+	}
 	if upd > 0 {
 		return &p, nil
 	}

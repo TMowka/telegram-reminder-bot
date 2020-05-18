@@ -82,6 +82,9 @@ func Save(ctx context.Context, db *sqlx.DB, name Name, val interface{}, now time
 		}
 
 		upd, err := res.RowsAffected()
+		if err != nil {
+			return errors.Wrap(err, "updating config")
+		}
 		if upd > 0 {
 			return nil
 		}
@@ -109,6 +112,9 @@ func Save(ctx context.Context, db *sqlx.DB, name Name, val interface{}, now time
 		}
 
 		upd, err := res.RowsAffected()
+		if err != nil {
+			return errors.Wrap(err, "updating config")
+		}
 		if upd > 0 {
 			return nil
 		}

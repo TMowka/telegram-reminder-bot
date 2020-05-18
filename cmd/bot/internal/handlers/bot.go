@@ -279,7 +279,7 @@ func (b *Bot) Help(m *tb.Message) {
 	_, span := trace.StartSpan(context.Background(), "handlers.Bot.Help")
 	defer span.End()
 
-	msg := fmt.Sprintf(`
+	msg := `
 /hello - Bot lifecheck
 /help - Print list of available commands
 /start - Start reminder with pre-configured remind time
@@ -290,7 +290,7 @@ func (b *Bot) Help(m *tb.Message) {
 /setremindmessage - Set remind message
 /setweekdaystoskip - Set weekdays to skip in format "0,1,2" (0 - is Sunday)
 /info - Print bot configuration and state
-`)
+`
 
 	b.send(msg)
 }
